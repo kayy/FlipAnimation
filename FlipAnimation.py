@@ -18,7 +18,6 @@
 # Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #
 # ***** END GPL LICENCE BLOCK *****
-# Revision $Id: FlipAnimation.py 929 2013-03-25 08:37:50Z kay $
 
 import bpy
 
