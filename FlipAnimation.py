@@ -54,7 +54,7 @@ class FlipAnimationPanel(bpy.types.Panel) :
 class FlipAnimation (bpy.types.Operator) :
 
     # Set this True to get noisy console output (MacOS/Linux users have to start Blender from terminal)
-    debug_output = False
+    debug_output = True
     # If True, code is executed for one frame only specified by initial_frame
     append_mode = False 
     
@@ -100,7 +100,7 @@ class FlipAnimation (bpy.types.Operator) :
         if self.check_preconditions (context):
             if self.debug_output :
                 print("-------------------------------------- ", self.active_action.name, " (", self.start_frame, " - ", self.end_frame, 
-                    "keying set: ", context.scene.keying_sets.active.name, ") ----------------------------------------")
+                    "keying set: ", context.scene.keying_sets.active.bl_label, ") ----------------------------------------")
             self.keyframe_bone_dict = self.build_keyframe_bone_dict (context, self.start_frame, self.end_frame)
             if self.append_mode:
                 self.delete_keyframes_for_frame_mode (context)
@@ -275,7 +275,7 @@ class FlipAnimation (bpy.types.Operator) :
             bpy.ops.pose.copy()
             if self.append_mode:
                 context.scene.frame_set(frame + self.append_frames_offset)
-            bpy.ops.pose.paste(flipped = True)
+            print(bpy.ops.pose.paste(flipped=True))
             
     
     # Remove all those keyframes that have been marked for deletion
