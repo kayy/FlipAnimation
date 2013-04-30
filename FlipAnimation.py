@@ -99,8 +99,9 @@ class FlipAnimation (bpy.types.Operator) :
     def action_common(self, context) :
         if self.check_preconditions (context):
             if self.debug_output :
-                print("-------------------------------------- ", self.active_action.name, " (", self.start_frame, " - ", self.end_frame, 
-                    "keying set: ", context.scene.keying_sets.active.bl_label, ") ----------------------------------------")
+                print("-------------------------------------- ", self.active_action.name, " (", self.start_frame, " - ",
+                    self.end_frame)
+#                    "keying set: ", context.scene.keying_sets.active.bl_label, ") ----------------------------------------")
             self.keyframe_bone_dict = self.build_keyframe_bone_dict (context, self.start_frame, self.end_frame)
             if self.append_mode:
                 self.delete_keyframes_for_frame_mode (context)
@@ -266,16 +267,21 @@ class FlipAnimation (bpy.types.Operator) :
             for bone_item in bones.items ():
                 self.num_changed += 1
                 bone = bone_item[0]
-                bpy.context.active_object.data.bones[bone].select = True
+                context.active_object.data.bones[bone].select = True
                 if self.debug_output:
                     out = out + bone + " | "
                     
+            if frame == 4:
+                print (context.active_pose_bone, " (before): ", context.active_pose_bone.rotation_quaternion)
+                # raise KeyboardInterrupt
             if self.debug_output:
                 print (str(frame), " Copy / Paste: ", out)
             bpy.ops.pose.copy()
             if self.append_mode:
                 context.scene.frame_set(frame + self.append_frames_offset)
             print(bpy.ops.pose.paste(flipped=True))
+            if frame == 4:
+                print (context.active_pose_bone, " (after): ", context.active_pose_bone.rotation_quaternion)
             
     
     # Remove all those keyframes that have been marked for deletion
