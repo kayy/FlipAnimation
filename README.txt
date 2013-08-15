@@ -7,7 +7,8 @@ http://files.scio.de/blog/FlipAnimation/FlipAnimation.zip
 Documentation:
 http://www.scio.de/en/blog-a-news/scio-development-blog-en/entry/flip-animation-add-on-for-mirroring-keyframes-in-blender
 
-Tested on Mac OSX, Blender 2.58 and Linux with Blender 2.66
+Tested on Mac OSX, Blender 2.58, 2.62 and Linux with Blender 2.62
+NOTE: Starting with version 2.63 the add-on refuses to work. It's still unclear why the values pasted by bpy.ops.pose.paste(Flipped=True) are wrong.
 
 Quick instructions:
 - Download
