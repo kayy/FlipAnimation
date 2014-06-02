@@ -75,6 +75,7 @@ class FlipAnimation (bpy.types.Operator) :
     # if append_mode = True this contains the offset where to paste the X flipped keyframes
     append_frames_offset = 0
     active_action = None
+    keying_set = None
     
     bl_idname = "pose.flip_animation"
     bl_label = "Flip Animation"
@@ -100,8 +101,7 @@ class FlipAnimation (bpy.types.Operator) :
         if self.check_preconditions (context):
             if self.debug_output :
                 print("-------------------------------------- ", self.active_action.name, " (", self.start_frame, " - ",
-                    self.end_frame)
-#                    "keying set: ", context.scene.keying_sets.active.bl_label, ") ----------------------------------------")
+                    self.end_frame, "keying set: ", context.scene.keying_sets.active.bl_label, ") ----------------------------------------")
             self.keyframe_bone_dict = self.build_keyframe_bone_dict (context, self.start_frame, self.end_frame)
             if self.append_mode:
                 self.delete_keyframes_for_frame_mode (context)
@@ -131,6 +131,7 @@ class FlipAnimation (bpy.types.Operator) :
         self.append_frames_offset = 0
         self.initial_frame = context.scene.frame_current
         self.append_mode = context.scene.flip_animation_append_mode
+        self.keying_set = bpy.context.scene.keying_sets.active
         if len(bpy.data.armatures) < 1: 
             # Should never occur because of pose mode but who knows
             self.report({'WARNING'}, "No armature found!")
@@ -271,7 +272,7 @@ class FlipAnimation (bpy.types.Operator) :
                 if self.debug_output:
                     out = out + bone + " | "
                     
-            if frame == 4:
+            if frame == 5:
                 print (context.active_pose_bone, " (before): ", context.active_pose_bone.rotation_quaternion)
                 # raise KeyboardInterrupt
             if self.debug_output:
@@ -279,15 +280,16 @@ class FlipAnimation (bpy.types.Operator) :
             bpy.ops.pose.copy()
             if self.append_mode:
                 context.scene.frame_set(frame + self.append_frames_offset)
-            print(bpy.ops.pose.paste(flipped=True))
-            if frame == 4:
+            print(bpy.ops.pose.paste(flipped=True,selected_mask=True))
+            bpy.ops.anim.keyframe_insert(type='__ACTIVE__',confirm_success=self.debug_output)
+            if frame == 5:
                 print (context.active_pose_bone, " (after): ", context.active_pose_bone.rotation_quaternion)
             
     
     # Remove all those keyframes that have been marked for deletion
     def delete_unneeded_key_frames (self, context, delete_dict):
         for frame_item in delete_dict.items ():
-            out = ""
+            out = "DELETE: "
             bpy.ops.pose.select_all(action='DESELECT')
             frame = frame_item[0]
             bones = frame_item[1]
@@ -306,11 +308,11 @@ class FlipAnimation (bpy.types.Operator) :
             if has_keyframe_selected:
                 if self.debug_output:
                     print (str(frame), " Delete: ", out)
-                bpy.ops.anim.keyframe_delete (type='Available',confirm_success=self.debug_output)
+                bpy.ops.anim.keyframe_delete (type='__ACTIVE__',confirm_success=self.debug_output)
     
     
     def debug_print_keyframe_bone_dict (self):
-        out = ""
+        out = "dict := "
         for frame in self.keyframe_bone_dict.items ():
             out = "[" + str(frame[0]) + "]: "
             for bone in frame[1].items ():
