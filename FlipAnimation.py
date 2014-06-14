@@ -230,7 +230,7 @@ class FlipAnimation (bpy.types.Operator) :
                 prev_active_bone = context.active_bone.name
                 bpy.context.active_object.data.bones.active=bpy.context.active_object.data.bones[bone]
                 result = None
-                result = bpy.ops.pose.select_flip_active()
+                result = bpy.ops.pose.select_mirror()
                 next_active_bone = context.active_bone.name
                 if 'FINISHED' in result:
                     if self.debug_output:
@@ -244,7 +244,7 @@ class FlipAnimation (bpy.types.Operator) :
                         print("No flipped bone for '", bone, "'")
                     other_bone = ""
                 else:
-                    print("Error! Result bpy.ops.pose.select_flip_active() does neither contain 'FINISHED' nor 'CANCELLED'! Got:", result)
+                    print("Error! Result bpy.ops.pose.select_mirror() does neither contain 'FINISHED' nor 'CANCELLED'! Got:", result)
                     other_bone = ""
                 if other_bone in frame[1] or other_bone == "":
                     # print ("Got ", bone, " other_bone is ", other_bone, " frame[1]", frame[1])
