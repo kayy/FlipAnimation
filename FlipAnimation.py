@@ -102,8 +102,12 @@ class FlipAnimation (bpy.types.Operator) :
     def action_common(self, context) :
         if self.check_preconditions (context):
             if self.debug_output :
+                if len(context.scene.keying_sets)!=0:
+                    keying_set=context.scene.keying_sets.active.bl_label
+                else:
+                    keying_set="None"
                 print("-------------------------------------- ", self.active_action.name, " (", self.start_frame, " - ",
-                    self.end_frame, "keying set: ", context.scene.keying_sets.active.bl_label, ") ----------------------------------------")
+                    self.end_frame, "keying set: ", keying_set, ") ----------------------------------------")
             self.keyframe_bone_dict = self.build_keyframe_bone_dict (context, self.start_frame, self.end_frame)
             if self.append_mode:
                 self.delete_keyframes_for_frame_mode (context)
@@ -126,6 +130,9 @@ class FlipAnimation (bpy.types.Operator) :
                 bpy.context.active_object.data.bones[bone].select = True
         # Restore visible layers
         context.active_object.data.layers[:] = self.initial_layers
+        # Restore status of "Keyframe insertion" buttons
+        bpy.context.scene.tool_settings.use_keyframe_insert_auto=self.initial_keyframe_insert_auto
+        bpy.context.scene.tool_settings.use_keyframe_insert_keyingset=self.initial_keyframe_insert_keyingset
                     
     def check_preconditions (self, context):
         ok = True
@@ -136,6 +143,12 @@ class FlipAnimation (bpy.types.Operator) :
         self.initial_frame = context.scene.frame_current
         self.append_mode = context.scene.flip_animation_append_mode
         self.keying_set = bpy.context.scene.keying_sets.active
+        
+        self.initial_keyframe_insert_auto=bpy.context.scene.tool_settings.use_keyframe_insert_auto
+        self.initial_keyframe_insert_keyingset=bpy.context.scene.tool_settings.use_keyframe_insert_keyingset
+        bpy.context.scene.tool_settings.use_keyframe_insert_auto=True
+        bpy.context.scene.tool_settings.use_keyframe_insert_keyingset=True
+        
         if len(bpy.data.armatures) < 1: 
             # Should never occur because of pose mode but who knows
             self.report({'WARNING'}, "No armature found!")
@@ -171,12 +184,6 @@ class FlipAnimation (bpy.types.Operator) :
             self.report({'WARNING'}, "'Start frame' (%d) is greater then 'End frame' (%d)!" % (self.start_frame, self.end_frame))
             return False
         automatic_keyframe_insertion_ok=True
-        if not context.tool_settings.use_keyframe_insert_auto:
-            messages.append ("'Automatic Keyframe Insertion for Objects And Bones' button")
-            automatic_keyframe_insertion_ok = False
-        if not context.tool_settings.use_keyframe_insert_keyingset:
-            messages.append ("'Automatic Keyframe Insertion Using Active Keying Set Only' button")
-            automatic_keyframe_insertion_ok = False
         if not automatic_keyframe_insertion_ok:
             s = ""
             i = 0
@@ -196,7 +203,8 @@ class FlipAnimation (bpy.types.Operator) :
 
         # make all layers visible; only visible bones can be keyframed
         self.initial_layers = context.active_object.data.layers[:]
-        context.active_object.data.layers[:] = (True,) * len(self.initial_layers)
+        for i in range(len(context.active_object.data.layers)):
+            context.active_object.data.layers[i] = True
         return True
             
     # Build a dictionary for iteration: Outer dict contains (frame num, dict), inner (bone, deletion flag)
@@ -292,7 +300,7 @@ class FlipAnimation (bpy.types.Operator) :
                 context.scene.frame_set(frame + self.append_frames_offset)
             bpy.ops.pose.select_mirror(extend=True)
             print(bpy.ops.pose.paste(flipped=True,selected_mask=True))
-            bpy.ops.anim.keyframe_insert(type='__ACTIVE__',confirm_success=self.debug_output)
+            bpy.ops.anim.keyframe_insert(type='Available',confirm_success=self.debug_output)
             if frame == 5:
                 print (context.active_pose_bone, " (after): ", context.active_pose_bone.rotation_quaternion)
             
@@ -319,7 +327,7 @@ class FlipAnimation (bpy.types.Operator) :
             if has_keyframe_selected:
                 if self.debug_output:
                     print (str(frame), " Delete: ", out)
-                bpy.ops.anim.keyframe_delete (type='__ACTIVE__',confirm_success=self.debug_output)
+                bpy.ops.anim.keyframe_delete (type='Available',confirm_success=self.debug_output)
     
     
     def debug_print_keyframe_bone_dict (self):
