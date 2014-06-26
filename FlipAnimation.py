@@ -65,6 +65,8 @@ class FlipAnimation (bpy.types.Operator) :
     num_deleted = 0
     # Frame that was selected at the start of this plugin
     initial_frame = 0
+    # Visible bone layers at the start of this plugin, used to restore at the end
+    initial_layers = ()
     # Bone selection  at the start of this plugin, used to restore at the end
     initial_bone_selection = list()
     # Active bone  at the start of this plugin, used to restore at the end
@@ -100,8 +102,12 @@ class FlipAnimation (bpy.types.Operator) :
     def action_common(self, context) :
         if self.check_preconditions (context):
             if self.debug_output :
+                if len(context.scene.keying_sets)!=0:
+                    keying_set=context.scene.keying_sets.active.bl_label
+                else:
+                    keying_set="None"
                 print("-------------------------------------- ", self.active_action.name, " (", self.start_frame, " - ",
-                    self.end_frame, "keying set: ", context.scene.keying_sets.active.bl_label, ") ----------------------------------------")
+                    self.end_frame, "keying set: ", keying_set, ") ----------------------------------------")
             self.keyframe_bone_dict = self.build_keyframe_bone_dict (context, self.start_frame, self.end_frame)
             if self.append_mode:
                 self.delete_keyframes_for_frame_mode (context)
@@ -122,6 +128,11 @@ class FlipAnimation (bpy.types.Operator) :
                 if self.debug_output :
                     print("selecting ", bone)
                 bpy.context.active_object.data.bones[bone].select = True
+        # Restore visible layers
+        context.active_object.data.layers[:] = self.initial_layers
+        # Restore status of "Keyframe insertion" buttons
+        bpy.context.scene.tool_settings.use_keyframe_insert_auto=self.initial_keyframe_insert_auto
+        bpy.context.scene.tool_settings.use_keyframe_insert_keyingset=self.initial_keyframe_insert_keyingset
                     
     def check_preconditions (self, context):
         ok = True
@@ -132,6 +143,12 @@ class FlipAnimation (bpy.types.Operator) :
         self.initial_frame = context.scene.frame_current
         self.append_mode = context.scene.flip_animation_append_mode
         self.keying_set = bpy.context.scene.keying_sets.active
+        
+        self.initial_keyframe_insert_auto=bpy.context.scene.tool_settings.use_keyframe_insert_auto
+        self.initial_keyframe_insert_keyingset=bpy.context.scene.tool_settings.use_keyframe_insert_keyingset
+        bpy.context.scene.tool_settings.use_keyframe_insert_auto=True
+        bpy.context.scene.tool_settings.use_keyframe_insert_keyingset=True
+        
         if len(bpy.data.armatures) < 1: 
             # Should never occur because of pose mode but who knows
             self.report({'WARNING'}, "No armature found!")
@@ -167,12 +184,6 @@ class FlipAnimation (bpy.types.Operator) :
             self.report({'WARNING'}, "'Start frame' (%d) is greater then 'End frame' (%d)!" % (self.start_frame, self.end_frame))
             return False
         automatic_keyframe_insertion_ok=True
-        if not context.tool_settings.use_keyframe_insert_auto:
-            messages.append ("'Automatic Keyframe Insertion for Objects And Bones' button")
-            automatic_keyframe_insertion_ok = False
-        if not context.tool_settings.use_keyframe_insert_keyingset:
-            messages.append ("'Automatic Keyframe Insertion Using Active Keying Set Only' button")
-            automatic_keyframe_insertion_ok = False
         if not automatic_keyframe_insertion_ok:
             s = ""
             i = 0
@@ -189,6 +200,11 @@ class FlipAnimation (bpy.types.Operator) :
         for bone in bpy.context.active_object.data.bones:
             if bone.select:
                 self.initial_bone_selection.append(bone.name)
+
+        # make all layers visible; only visible bones can be keyframed
+        self.initial_layers = context.active_object.data.layers[:]
+        for i in range(len(context.active_object.data.layers)):
+            context.active_object.data.layers[i] = True
         return True
             
     # Build a dictionary for iteration: Outer dict contains (frame num, dict), inner (bone, deletion flag)
@@ -230,21 +246,23 @@ class FlipAnimation (bpy.types.Operator) :
                 prev_active_bone = context.active_bone.name
                 bpy.context.active_object.data.bones.active=bpy.context.active_object.data.bones[bone]
                 result = None
-                result = bpy.ops.pose.select_flip_active()
+                result = bpy.ops.pose.select_mirror(only_active=True)
                 next_active_bone = context.active_bone.name
                 if 'FINISHED' in result:
-                    if self.debug_output:
-                        print("Found flipped for active bone '", bone, "' -> ", next_active_bone) 
-                    other_bone = next_active_bone
-                    if bone == other_bone:
-                        print ("ERROR! Bone ", bone, " could be flipped successfully but result is the bone itself: ", other_bone)
-                        other_bone = "ERROR_ASDF_QWER_FDSA_REWQ"
+                    if bone == next_active_bone:
+                        if self.debug_output:
+                            print("No flipped bone for '", bone, "'")
+                        other_bone = ""
+                    else:
+                        if self.debug_output:
+                            print("Found flipped for active bone '", bone, "' -> ", next_active_bone)
+                        other_bone = next_active_bone
                 elif 'CANCELLED' in result: # 'CANCELLED' means there is no corresponding bone
                     if self.debug_output:
                         print("No flipped bone for '", bone, "'")
                     other_bone = ""
                 else:
-                    print("Error! Result bpy.ops.pose.select_flip_active() does neither contain 'FINISHED' nor 'CANCELLED'! Got:", result)
+                    print("Error! Result bpy.ops.pose.select_mirror() does neither contain 'FINISHED' nor 'CANCELLED'! Got:", result)
                     other_bone = ""
                 if other_bone in frame[1] or other_bone == "":
                     # print ("Got ", bone, " other_bone is ", other_bone, " frame[1]", frame[1])
@@ -280,8 +298,9 @@ class FlipAnimation (bpy.types.Operator) :
             bpy.ops.pose.copy()
             if self.append_mode:
                 context.scene.frame_set(frame + self.append_frames_offset)
+            bpy.ops.pose.select_mirror(extend=True)
             print(bpy.ops.pose.paste(flipped=True,selected_mask=True))
-            bpy.ops.anim.keyframe_insert(type='__ACTIVE__',confirm_success=self.debug_output)
+            bpy.ops.anim.keyframe_insert(type='Available',confirm_success=self.debug_output)
             if frame == 5:
                 print (context.active_pose_bone, " (after): ", context.active_pose_bone.rotation_quaternion)
             
@@ -308,7 +327,7 @@ class FlipAnimation (bpy.types.Operator) :
             if has_keyframe_selected:
                 if self.debug_output:
                     print (str(frame), " Delete: ", out)
-                bpy.ops.anim.keyframe_delete (type='__ACTIVE__',confirm_success=self.debug_output)
+                bpy.ops.anim.keyframe_delete (type='Available',confirm_success=self.debug_output)
     
     
     def debug_print_keyframe_bone_dict (self):
